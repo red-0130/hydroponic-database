@@ -14,6 +14,7 @@ ADMIN_PASS="${ADMIN_PASSWORD:-admin_hydroponics_secure_pass_2026}"
 SESSION_SECRET="${ADMIN_SESSION_SECRET:-e9d8f2a1b7c3e4f50618293a4b5c6d7e8f90123456789abcdef0123456789abc}"
 BASE_URL="http://127.0.0.1:${TEST_PORT}"
 COOKIE_JAR="$(mktemp /tmp/hydro_cookies_XXXXXX.txt)"
+TEST_DATA_DIR="$(mktemp -d /tmp/hydro_verify_data_XXXXXX)"
 
 echo "====================================================================="
 echo "Starting Automated Container Verification Suite"
@@ -21,6 +22,7 @@ echo "Image:        ${IMAGE_NAME}"
 echo "Container:    ${CONTAINER_NAME}"
 echo "Port:         ${TEST_PORT}"
 echo "Secret Route: /${SECRET_PATH}"
+echo "Mount Volume: ${TEST_DATA_DIR}:/app/data"
 echo "====================================================================="
 
 # Step 1: Ensure Docker Host & Daemon
@@ -63,6 +65,7 @@ cleanup() {
   local exit_code=$?
   echo ">>> Performing Container Teardown & Cleanup..."
   rm -f "${COOKIE_JAR}" 2>/dev/null || true
+  rm -rf "${TEST_DATA_DIR}" 2>/dev/null || true
   ${DOCKER_CMD} rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
   if [ $exit_code -eq 0 ]; then
     echo ">>> Verification Suite Completed Successfully."
@@ -82,10 +85,11 @@ ${DOCKER_CMD} build -t "${IMAGE_NAME}" .
 echo "[PASS] Image build completed successfully."
 
 # Step 3: Run Container Instance
-echo ">>> Step 3: Running Container Instance..."
+echo ">>> Step 3: Running Container Instance with Volume Mount..."
 ${DOCKER_CMD} run -d \
   --name "${CONTAINER_NAME}" \
   -p "${TEST_PORT}:3000" \
+  -v "${TEST_DATA_DIR}:/app/data" \
   -e PORT=3000 \
   -e ADMIN_SECRET_PATH="${SECRET_PATH}" \
   -e ADMIN_PASSWORD="${ADMIN_PASS}" \
@@ -205,6 +209,25 @@ if [ "${HEALTH_STATUS}" = "healthy" ]; then
   echo "  [PASS] Container health status is 'healthy'."
 else
   echo "  [FAIL] Container health status is '${HEALTH_STATUS}', expected 'healthy'."
+  exit 1
+fi
+
+# Check 9: Verify database initialization in mounted volume
+echo "Check 9: Verifying database initialization in mounted volume..."
+if [ -s "${TEST_DATA_DIR}/hydroponics.db" ]; then
+  echo "  [PASS] Database successfully initialized in host-mounted volume (${TEST_DATA_DIR}/hydroponics.db)."
+else
+  echo "  [FAIL] Database file not found or empty in ${TEST_DATA_DIR}."
+  exit 1
+fi
+
+# Check 10: Verify PID 1 runs as unprivileged user nextjs (UID 1001)
+echo "Check 10: Verifying unprivileged execution (UID 1001 / nextjs)..."
+PID1_UID=$(${DOCKER_CMD} exec "${CONTAINER_NAME}" sh -c "grep '^Uid:' /proc/1/status | awk '{print \$2}'")
+if [ "${PID1_UID}" = "1001" ]; then
+  echo "  [PASS] Container application (PID 1) is running as unprivileged UID 1001 (nextjs)."
+else
+  echo "  [FAIL] Expected PID 1 to run as UID 1001, got UID '${PID1_UID}'."
   exit 1
 fi
 

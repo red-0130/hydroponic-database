@@ -41,6 +41,11 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/app/data/hydroponics.db"
 
+# Install gosu for lightweight privilege dropping in entrypoint
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/*
+
 # Create unprivileged system group and user, and persistent data directories
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 -g nodejs nextjs && \
@@ -56,15 +61,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/hydroponics.db /app/hydroponics.db.template
 
 # Copy and setup entrypoint script
-COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Mount volume for persistent database storage
 VOLUME ["/app/data"]
 
 EXPOSE 3000
-
-USER nextjs
 
 HEALTHCHECK --interval=5s --timeout=3s --start-period=3s --retries=3 \
   CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3000) + '/api/plants').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
