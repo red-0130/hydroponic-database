@@ -16,39 +16,6 @@ A modern, high-performance, and responsive full-stack hydroponics database appli
 
 ---
 
-## Architecture Overview
-
-```mermaid
-flowchart TD
-    Client["Client / Web Browser"] --> NextMiddleware["Next.js Edge Middleware\n(src/middleware.ts)"]
-
-    subgraph RouteShielding["Route Shielding & Protection"]
-        NextMiddleware -- "/admin or /dashboard" --> Block404["404 Not Found\n(Complete Route Masking)"]
-        NextMiddleware -- "/api/admin/* (Unauthenticated)" --> Block401["401 Unauthorized"]
-        NextMiddleware -- "Public Routes & Static Assets" --> PublicPages["Public Explorer (/) & Plant Details"]
-        NextMiddleware -- "Dynamic Secret Path /[ADMIN_SECRET_PATH]" --> SecretPortal["Secret Admin Portal\n(Login / Management)"]
-        NextMiddleware -- "Authorized /api/admin/*" --> AdminAPI["Admin API Endpoints"]
-    end
-
-    subgraph APILayer["API & Business Logic Layer"]
-        PublicPages --> PublicAPI["Public API (/api/plants)"]
-        AdminAPI --> AuthController["Timing-Safe Auth & Rate Limiter"]
-        AdminAPI --> PlantController["Plants CRUD & Bulk Importer/Exporter"]
-        AdminAPI --> IssueController["Crop Deficiencies & Issues Manager"]
-        AdminAPI --> SeedController["Database Seeder & Template Initializer"]
-    end
-
-    subgraph DataLayer["Persistence & Storage Layer"]
-        PublicAPI --> Drizzle["Drizzle ORM (Type-Safe Query Builder)"]
-        PlantController --> Drizzle
-        IssueController --> Drizzle
-        SeedController --> Drizzle
-        Drizzle --> SQLite["SQLite / LibSQL Database\n(/app/data/hydroponics.db with WAL mode)"]
-    end
-```
-
----
-
 ## Key Features
 
 ### 1. Public Crop Explorer (`/`)
@@ -93,21 +60,6 @@ Hydroponic nutrient concentration is measured via Electrical Conductivity (EC) o
 | **PPM 700 Scale** | $\text{PPM}_{700} = \text{EC} \times 700$ | Eutech, Truncheon, UK/AU standard (TDS factor 0.7) |
 | **Fahrenheit Conversion** | $^{\circ}\text{F} = (^{\circ}\text{C} \times 1.8) + 32$ | Temperature conversion |
 | **Celsius Conversion** | $^{\circ}\text{C} = (^{\circ}\text{F} - 32) / 1.8$ | Temperature conversion |
-
-### Verified Reference Crops Dataset
-
-The application comes pre-configured with 8 standard commercial hydroponic crops:
-
-| Crop | Scientific Name | Category | pH Range | EC (mS/cm) | cF | PPM 500 | PPM 700 | Temp (°C) | Optimal Light |
-|---|---|---|---|---|---|---|---|---|---|
-| **Lettuce (Head/Bibb)** | *Lactuca sativa* | Leafy Greens | 5.5 – 6.5 | 0.8 – 1.2 | 8 – 12 | 400 – 600 | 560 – 840 | 15 – 22°C | 12 – 14 hrs/day |
-| **Basil (Sweet Genovese)** | *Ocimum basilicum* | Herbs | 5.5 – 6.5 | 1.0 – 1.6 | 10 – 16 | 500 – 800 | 700 – 1120 | 20 – 28°C | 14 – 16 hrs/day |
-| **Spinach** | *Spinacia oleracea* | Leafy Greens | 5.5 – 6.6 | 1.0 – 1.8 | 10 – 18 | 500 – 900 | 700 – 1260 | 14 – 20°C | 12 – 14 hrs/day |
-| **Tomato (Fruiting)** | *Solanum lycopersicum* | Fruiting | 5.8 – 6.5 | 2.0 – 3.5 | 20 – 35 | 1000 – 1750 | 1400 – 2450 | 18 – 26°C | 14 – 18 hrs/day |
-| **Bell Pepper** | *Capsicum annuum* | Fruiting | 5.8 – 6.5 | 1.8 – 2.6 | 18 – 26 | 900 – 1300 | 1260 – 1820 | 20 – 27°C | 14 – 16 hrs/day |
-| **Strawberry** | *Fragaria × ananassa* | Fruiting | 5.5 – 6.2 | 1.0 – 1.4 | 10 – 14 | 500 – 700 | 700 – 980 | 16 – 24°C | 12 – 14 hrs/day |
-| **Cucumber** | *Cucumis sativus* | Fruiting | 5.5 – 6.0 | 1.7 – 2.5 | 17 – 25 | 850 – 1250 | 1190 – 1750 | 22 – 28°C | 14 – 16 hrs/day |
-| **Mint (Spearmint)** | *Mentha spicata* | Herbs | 5.5 – 6.5 | 1.2 – 2.2 | 12 – 22 | 600 – 1100 | 840 – 1540 | 18 – 24°C | 12 – 16 hrs/day |
 
 ---
 
