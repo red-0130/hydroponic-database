@@ -297,7 +297,7 @@ The administration system is engineered with defense-in-depth principles:
 | `POST` | `/api/admin/upload` | `multipart/form-data` (`file`) | Validates image MIME type and saves to `/public/uploads`. |
 | `GET` | `/api/admin/export` | `format=json` or `format=csv` | Exports complete database with issues. |
 | `POST` | `/api/admin/import` | `format=json|csv`, `previewOnly=true|false`, payload | Validates and imports bulk crop records. |
-| `POST` | `/api/admin/seed` | — | Resets and re-seeds database with the standard 8 commercial crops. |
+| `POST` | `/api/admin/seed` | — | Disabled endpoint (returns 404); database seeds automatically on startup when empty. |
 
 ---
 

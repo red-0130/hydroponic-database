@@ -1,64 +1,88 @@
 import { db, initDb, plants, plantIssues } from './index';
 import { SEED_CROPS } from './seedData';
-import { eq, notInArray } from 'drizzle-orm';
+import { count } from 'drizzle-orm';
 
-export async function seedDatabase() {
-  await initDb();
+/**
+ * Seeds the database only if uninitialized or currently contains zero plant records.
+ * If records already exist, leaves all existing data intact without modifying or re-seeding.
+ */
+export async function seedIfEmpty(
+  targetDb = db,
+  targetInitDb = initDb
+): Promise<{
+  seeded: boolean;
+  plantsCount: number;
+  issuesCount: number;
+}> {
+  await targetInitDb();
+
+  const [countResult] = await targetDb.select({ count: count() }).from(plants);
+  const existingCount = Number(countResult?.count ?? 0);
+
+  if (existingCount > 0) {
+    return {
+      seeded: false,
+      plantsCount: existingCount,
+      issuesCount: 0,
+    };
+  }
 
   const now = new Date();
   let totalIssuesCount = 0;
 
-  // Purge any plants not in standard seed crops
-  const seedIds = SEED_CROPS.map((c) => c.id);
-  await db.delete(plants).where(notInArray(plants.id, seedIds));
-
   for (const crop of SEED_CROPS) {
     const { issues, ...plantData } = crop;
 
-    const existingPlant = await db
-      .select({ id: plants.id })
-      .from(plants)
-      .where(eq(plants.id, crop.id))
-      .get();
-
-    if (existingPlant) {
-      await db
-        .update(plants)
-        .set({
-          ...plantData,
-          updatedAt: now,
-        })
-        .where(eq(plants.id, crop.id));
-
-      await db.delete(plantIssues).where(eq(plantIssues.plantId, crop.id));
-    } else {
-      await db.insert(plants).values({
+    await targetDb
+      .insert(plants)
+      .values({
         ...plantData,
         createdAt: now,
         updatedAt: now,
-      });
-    }
+      })
+      .onConflictDoNothing();
 
     if (issues && issues.length > 0) {
       for (let i = 0; i < issues.length; i++) {
         const issue = issues[i];
-        await db.insert(plantIssues).values({
-          id: `${crop.id}-issue-${i + 1}`,
-          plantId: crop.id,
-          title: issue.title,
-          causeDescription: issue.causeDescription,
-          resolutionDescription: issue.resolutionDescription,
-          imageUrl: issue.imageUrl,
-          createdAt: now,
-          updatedAt: now,
-        });
+        await targetDb
+          .insert(plantIssues)
+          .values({
+            id: `${crop.id}-issue-${i + 1}`,
+            plantId: crop.id,
+            title: issue.title,
+            causeDescription: issue.causeDescription,
+            resolutionDescription: issue.resolutionDescription,
+            imageUrl: issue.imageUrl,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .onConflictDoNothing();
         totalIssuesCount++;
       }
     }
   }
 
   console.log(`Seeding complete: ${SEED_CROPS.length} plants and ${totalIssuesCount} issues.`);
-  return { plantsCount: SEED_CROPS.length, issuesCount: totalIssuesCount };
+  return {
+    seeded: true,
+    plantsCount: SEED_CROPS.length,
+    issuesCount: totalIssuesCount,
+  };
+}
+
+/**
+ * Backwards-compatible alias for seedIfEmpty.
+ */
+export async function seedDatabase(
+  targetDb = db,
+  targetInitDb = initDb
+): Promise<{
+  seeded: boolean;
+  plantsCount: number;
+  issuesCount: number;
+}> {
+  return seedIfEmpty(targetDb, targetInitDb);
 }
 
 // Check if run directly
@@ -73,8 +97,8 @@ const isDirectRun = Boolean(
 
 if (isDirectRun) {
   seedDatabase()
-    .then(() => {
-      console.log('Seed script finished successfully.');
+    .then((res) => {
+      console.log(`Seed script finished successfully. Seeded: ${res.seeded}, plants: ${res.plantsCount}`);
       process.exit(0);
     })
     .catch((err) => {

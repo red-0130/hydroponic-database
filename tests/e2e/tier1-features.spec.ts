@@ -656,15 +656,10 @@ test.describe('Tier 1: Feature Coverage (Category-Partition Testing)', () => {
       await expect(preview.first()).toContainText(/15\s*-\s*25\s*cF|750\s*-\s*1250\s*PPM/i);
     });
 
-    test('T1.8.3: Seed Database button triggers seeding confirmation', async ({ page }) => {
+    test('T1.8.3: Seed Database button is not present on admin interface', async ({ page }) => {
       const seedBtn = page.getByTestId('seed-database-btn')
         .or(page.getByRole('button', { name: /seed database|seed crops/i }));
-      await expect(seedBtn).toBeVisible();
-      await seedBtn.click();
-
-      // Check for success toast or table populated with 8 crops
-      const toastOrAlert = page.getByText(/seeded|success|8 crops/i);
-      await expect(toastOrAlert.first()).toBeVisible();
+      await expect(seedBtn).toHaveCount(0);
     });
 
     test('T1.8.4: Export JSON button downloads crop data file', async ({ page }) => {

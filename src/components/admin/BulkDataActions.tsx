@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import {
   Download,
   Upload,
-  Database,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -22,7 +21,6 @@ export default function BulkDataActions({
   onRefresh,
   setMessage,
 }: BulkDataActionsProps) {
-  const [seeding, setSeeding] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<{
@@ -32,41 +30,7 @@ export default function BulkDataActions({
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
-  // 1. Seed Database
-  async function handleSeedDatabase() {
-    setSeeding(true);
-    setMessage(null);
-
-    try {
-      const res = await fetch('/api/admin/seed', {
-        method: 'POST',
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setMessage({
-          text: data.error || 'Failed to seed database.',
-          type: 'error',
-        });
-        return;
-      }
-
-      setMessage({
-        text: 'Database seeded successfully with 8 crops and 13 issues!',
-        type: 'success',
-      });
-      onRefresh();
-    } catch {
-      setMessage({
-        text: 'Network error occurred while seeding database.',
-        type: 'error',
-      });
-    } finally {
-      setSeeding(false);
-    }
-  }
-
-  // 2. File Selection & Preview for Import
+  // 1. File Selection & Preview for Import
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -145,22 +109,6 @@ export default function BulkDataActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {/* Seed Database Button */}
-      <button
-        type="button"
-        data-testid="seed-database-btn"
-        onClick={handleSeedDatabase}
-        disabled={seeding}
-        className="px-3.5 py-2 bg-emerald-700/80 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition border border-emerald-600/50"
-      >
-        {seeding ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Database className="w-4 h-4" />
-        )}
-        <span>Seed Database</span>
-      </button>
-
       {/* Export JSON Anchor */}
       <a
         href="/api/admin/export?format=json"

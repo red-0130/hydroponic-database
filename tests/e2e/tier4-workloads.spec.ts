@@ -343,9 +343,11 @@ test.describe('Tier 4: Real-World Grower & Admin Workloads', () => {
     // Step 1: Login via API
     await request.post('/api/admin/auth/login', { data: { password: ADMIN_PASSWORD } });
 
-    // Step 2: Trigger Seed Database to ensure reference dataset is present
-    const seedRes = await request.post('/api/admin/seed', { data: {} });
-    expect(seedRes.status()).toBe(200);
+    // Step 2: Verify standard crops are present via GET /api/plants
+    const plantsRes = await request.get('/api/plants');
+    expect(plantsRes.status()).toBe(200);
+    const existingPlants = await plantsRes.json();
+    expect(existingPlants.length).toBeGreaterThanOrEqual(8);
 
     // Step 3: Export full JSON disaster recovery backup
     const exportRes = await request.get('/api/admin/export?format=json');

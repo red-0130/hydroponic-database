@@ -224,7 +224,7 @@ export default function AdminDashboard({ secretPath, onLogout }: AdminDashboardP
             </span>
           </div>
 
-          {/* Bulk Actions: Seed, Export JSON/CSV, Import */}
+          {/* Bulk Actions: Export JSON/CSV, Import */}
           <BulkDataActions onRefresh={fetchPlants} setMessage={setMessage} />
         </div>
 

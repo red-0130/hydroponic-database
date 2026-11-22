@@ -6,6 +6,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/unit/**/*.{test,spec}.ts'],
+    fileParallelism: false,
   },
   resolve: {
     alias: {

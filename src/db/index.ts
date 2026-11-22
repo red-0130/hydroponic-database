@@ -1,6 +1,7 @@
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import * as schema from './schema';
+import { seedIfEmpty } from './seed';
 
 const url = process.env.DATABASE_URL || 'file:hydroponics.db';
 
@@ -59,10 +60,12 @@ export async function initDb() {
 let dbInitPromise: Promise<void> | null = null;
 export async function ensureDb(): Promise<void> {
   if (!dbInitPromise) {
-    dbInitPromise = initDb();
+    dbInitPromise = (async () => {
+      await initDb();
+      await seedIfEmpty();
+    })();
   }
   return dbInitPromise;
 }
 
 export * from './schema';
-

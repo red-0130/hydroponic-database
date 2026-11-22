@@ -23,7 +23,7 @@ export default function AdminPlantTable({
         <Sprout className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
         <h3 className="text-base font-semibold text-white">No crops found</h3>
         <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
-          No crops matched your current filter or the database is empty. Click &ldquo;Add Crop&rdquo; or &ldquo;Seed Database&rdquo; above.
+          No crops matched your current filter or the database is empty. Click &ldquo;Add Crop&rdquo; above.
         </p>
       </div>
     );

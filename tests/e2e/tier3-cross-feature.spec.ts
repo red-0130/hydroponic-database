@@ -374,27 +374,15 @@ test.describe('Tier 3: Cross-Feature Combinations & State Synchronization', () =
   });
 
   // =========================================================================
-  // T3.10: Database Seeding Idempotency
+  // T3.10: Database Seeding Endpoint Disabled
   // =========================================================================
-  test('T3.10: triggering seed standard crops multiple times does not duplicate records', async ({ request }) => {
+  test('T3.10: authenticated POST to /api/admin/seed returns 404 disabled error', async ({ request }) => {
     await request.post('/api/admin/auth/login', { data: { password: ADMIN_PASSWORD } });
 
-    // Seed once
-    const seed1 = await request.post('/api/admin/seed', { data: {} });
-    expect(seed1.status()).toBe(200);
+    const seedRes = await request.post('/api/admin/seed', { data: {} });
+    expect(seedRes.status()).toBe(404);
 
-    // Seed twice
-    const seed2 = await request.post('/api/admin/seed', { data: {} });
-    expect(seed2.status()).toBe(200);
-
-    // Check public crops count
-    const listRes = await request.get('/api/plants');
-    expect(listRes.status()).toBe(200);
-    const plants = await listRes.json();
-    
-    // There should be at least 8 standard crops and no duplicate IDs
-    const ids = plants.map((p: any) => p.id);
-    const uniqueIds = new Set(ids);
-    expect(uniqueIds.size).toBe(ids.length);
+    const json = await seedRes.json();
+    expect(json.error).toBeDefined();
   });
 });

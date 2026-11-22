@@ -770,14 +770,12 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
   });
 
   describe('8. Admin Bulk Data, Export, Import & Seed Endpoints', () => {
-    it('POST /api/admin/seed resets and re-populates the database', async () => {
+    it('POST /api/admin/seed is disabled and returns 404', async () => {
       const res = await adminSeedDb();
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(404);
 
       const json = await res.json();
-      expect(json.success).toBe(true);
-      expect(json.count).toBe(8);
-      expect(json.issuesCount).toBeGreaterThanOrEqual(10);
+      expect(json.error).toBeDefined();
     });
 
     it('GET /api/admin/export returns JSON dataset with attached issues by default', async () => {
