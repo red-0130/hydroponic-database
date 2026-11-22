@@ -96,6 +96,16 @@ Hydroponic nutrient concentration is measured via Electrical Conductivity (EC) o
 
    _Edit `.env` to define your custom `ADMIN_SECRET_PATH`, `ADMIN_PASSWORD`, and `ADMIN_SESSION_SECRET`._
 
+   To generate a secure 64-character (32-byte) hex string for `ADMIN_SESSION_SECRET`, you can run:
+
+   ```bash
+   # Using openssl
+   openssl rand -hex 32
+
+   # Or using Node.js / Bun
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
 4. **Initialize and seed the database:**
 
    ```bash
