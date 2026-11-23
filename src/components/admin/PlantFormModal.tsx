@@ -146,12 +146,23 @@ export default function PlantFormModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size === 0) {
+      setErrorAlert('Selected file is empty or still downloading from iCloud');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorAlert('File size exceeds maximum allowed limit of 5MB');
+      return;
+    }
+
     setUploadingImage(true);
     setErrorAlert(null);
 
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'image.jpg';
+      formData.append('file', file, safeName);
 
       const res = await fetch('/api/admin/upload', {
         method: 'POST',

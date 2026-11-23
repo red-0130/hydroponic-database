@@ -729,6 +729,32 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
       expect(json.error).toContain('No file provided');
     });
 
+    it('POST /api/admin/upload rejects non-multipart content-type with 400', async () => {
+      const req = createRequest('/api/admin/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ file: 'not-multipart' }),
+      });
+
+      const res = await adminUploadImage(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe('Content-Type must be multipart/form-data');
+    });
+
+    it('POST /api/admin/upload rejects malformed/corrupted upload body with 400 without crashing with 500', async () => {
+      const req = createRequest('/api/admin/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'multipart/form-data; boundary=----CorruptedBoundary123' },
+        body: '------CorruptedBoundary123\r\nContent-Disposition: form-data; name="file"\r\n\r\nincomplete-body-no-closing-boundary',
+      });
+
+      const res = await adminUploadImage(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe('Invalid file upload payload or corrupted stream');
+    });
+
     it('POST /api/admin/upload rejects invalid MIME types (e.g. text/plain)', async () => {
       const formData = new FormData();
       const blob = new Blob(['sample text content'], { type: 'text/plain' });
@@ -765,6 +791,29 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
 
       // Clean up uploaded test file
       const diskPath = path.join(process.cwd(), 'public', uploadedFileUrl);
+      await unlink(diskPath).catch(() => {});
+    });
+
+    it('POST /api/admin/upload accepts file with sanitized ASCII filename and succeeds with 200', async () => {
+      const formData = new FormData();
+      const dummyPngData = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+      const blob = new Blob([dummyPngData], { type: 'image/png' });
+      const originalName = '🌱_plant photo #1 (iOS).png';
+      const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_') || 'image.jpg';
+      formData.append('file', blob, safeName);
+
+      const req = createRequest('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const res = await adminUploadImage(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.url).toMatch(/^\/uploads\/[0-9a-f-]+\.png$/);
+
+      // Clean up uploaded test file
+      const diskPath = path.join(process.cwd(), 'public', json.url);
       await unlink(diskPath).catch(() => {});
     });
   });
