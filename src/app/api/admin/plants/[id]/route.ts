@@ -100,12 +100,12 @@ export async function PUT(
       ? Boolean(data.isCustomCalculations)
       : existingPlant.isCustomCalculations;
 
-    let cfMin = data.cfMin !== undefined ? data.cfMin : existingPlant.cfMin;
-    let cfMax = data.cfMax !== undefined ? data.cfMax : existingPlant.cfMax;
-    let ppm500Min = data.ppm500Min !== undefined ? data.ppm500Min : existingPlant.ppm500Min;
-    let ppm500Max = data.ppm500Max !== undefined ? data.ppm500Max : existingPlant.ppm500Max;
-    let ppm700Min = data.ppm700Min !== undefined ? data.ppm700Min : existingPlant.ppm700Min;
-    let ppm700Max = data.ppm700Max !== undefined ? data.ppm700Max : existingPlant.ppm700Max;
+    let cfMin = data.cfMin != null ? data.cfMin : existingPlant.cfMin;
+    let cfMax = data.cfMax != null ? data.cfMax : existingPlant.cfMax;
+    let ppm500Min = data.ppm500Min != null ? data.ppm500Min : existingPlant.ppm500Min;
+    let ppm500Max = data.ppm500Max != null ? data.ppm500Max : existingPlant.ppm500Max;
+    let ppm700Min = data.ppm700Min != null ? data.ppm700Min : existingPlant.ppm700Min;
+    let ppm700Max = data.ppm700Max != null ? data.ppm700Max : existingPlant.ppm700Max;
 
     // If custom calculations is false, or ecMin/ecMax changed without custom calculations
     if (!isCustom) {

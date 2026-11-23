@@ -77,20 +77,20 @@ export async function POST(request: NextRequest) {
 
     if (
       !isCustom ||
-      cfMin === undefined ||
-      cfMax === undefined ||
-      ppm500Min === undefined ||
-      ppm500Max === undefined ||
-      ppm700Min === undefined ||
-      ppm700Max === undefined
+      cfMin == null ||
+      cfMax == null ||
+      ppm500Min == null ||
+      ppm500Max == null ||
+      ppm700Min == null ||
+      ppm700Max == null
     ) {
       const calculated = calculateNutrientMetrics(data.ecMin, data.ecMax);
-      cfMin = isCustom && cfMin !== undefined ? cfMin : calculated.cfMin;
-      cfMax = isCustom && cfMax !== undefined ? cfMax : calculated.cfMax;
-      ppm500Min = isCustom && ppm500Min !== undefined ? ppm500Min : calculated.ppm500Min;
-      ppm500Max = isCustom && ppm500Max !== undefined ? ppm500Max : calculated.ppm500Max;
-      ppm700Min = isCustom && ppm700Min !== undefined ? ppm700Min : calculated.ppm700Min;
-      ppm700Max = isCustom && ppm700Max !== undefined ? ppm700Max : calculated.ppm700Max;
+      cfMin = isCustom && cfMin != null ? cfMin : calculated.cfMin;
+      cfMax = isCustom && cfMax != null ? cfMax : calculated.cfMax;
+      ppm500Min = isCustom && ppm500Min != null ? ppm500Min : calculated.ppm500Min;
+      ppm500Max = isCustom && ppm500Max != null ? ppm500Max : calculated.ppm500Max;
+      ppm700Min = isCustom && ppm700Min != null ? ppm700Min : calculated.ppm700Min;
+      ppm700Max = isCustom && ppm700Max != null ? ppm700Max : calculated.ppm700Max;
     }
 
     const id = randomUUID();

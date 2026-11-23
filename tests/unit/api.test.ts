@@ -999,6 +999,46 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
       }
     });
 
+    it('POST /api/admin/import successfully handles empty custom calculation fields in CSV', async () => {
+      const csvData = [
+        'name,category,phMin,phMax,ecMin,ecMax,cfMin,cfMax,ppm500Min,ppm500Max,ppm700Min,ppm700Max,isCustomCalculations',
+        'Arugula,Leafy Greens,6.0,7.0,0.8,1.2,,,,,,,',
+      ].join('\n');
+
+      const req = createRequest('/api/admin/import', {
+        method: 'POST',
+        body: {
+          csv: csvData,
+          previewOnly: false,
+        },
+      });
+
+      const res = await adminImportData(req);
+      expect(res.status).toBe(200);
+
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.imported).toBe(1);
+
+      const arugula = await db
+        .select()
+        .from(plants)
+        .where(eq(plants.name, 'Arugula'))
+        .get();
+      expect(arugula).toBeDefined();
+      expect(arugula?.isCustomCalculations).toBe(false);
+      expect(arugula?.cfMin).toBe(8);
+      expect(arugula?.cfMax).toBe(12);
+      expect(arugula?.ppm500Min).toBe(400);
+      expect(arugula?.ppm500Max).toBe(600);
+      expect(arugula?.ppm700Min).toBe(560);
+      expect(arugula?.ppm700Max).toBe(840);
+
+      if (arugula) {
+        await db.delete(plants).where(eq(plants.id, arugula.id));
+      }
+    });
+
     it('POST /api/admin/import handles multiline quoted growthTips in CSV without fracturing rows', async () => {
       const multilineCsv = [
         'name,category,phMin,phMax,ecMin,ecMax,growthTips',

@@ -36,6 +36,54 @@ describe('Data Validation Schemas', () => {
       }
     });
 
+    it('accepts null or undefined for isCustomCalculations and transforms to false', () => {
+      const withNullCustom = createPlantSchema.safeParse({
+        ...validPlantData,
+        isCustomCalculations: null,
+      });
+      expect(withNullCustom.success).toBe(true);
+      if (withNullCustom.success) {
+        expect(withNullCustom.data.isCustomCalculations).toBe(false);
+      }
+
+      const withUndefinedCustom = createPlantSchema.safeParse({
+        ...validPlantData,
+        isCustomCalculations: undefined,
+      });
+      expect(withUndefinedCustom.success).toBe(true);
+      if (withUndefinedCustom.success) {
+        expect(withUndefinedCustom.data.isCustomCalculations).toBe(false);
+      }
+
+      const withTrueCustom = createPlantSchema.safeParse({
+        ...validPlantData,
+        isCustomCalculations: true,
+      });
+      expect(withTrueCustom.success).toBe(true);
+      if (withTrueCustom.success) {
+        expect(withTrueCustom.data.isCustomCalculations).toBe(true);
+      }
+    });
+
+    it('accepts null for custom calculation fields (cfMin, cfMax, ppm500Min, ppm500Max, ppm700Min, ppm700Max)', () => {
+      const withNullCalculations = createPlantSchema.safeParse({
+        ...validPlantData,
+        cfMin: null,
+        cfMax: null,
+        ppm500Min: null,
+        ppm500Max: null,
+        ppm700Min: null,
+        ppm700Max: null,
+        isCustomCalculations: null,
+      });
+      expect(withNullCalculations.success).toBe(true);
+      if (withNullCalculations.success) {
+        expect(withNullCalculations.data.cfMin).toBeNull();
+        expect(withNullCalculations.data.cfMax).toBeNull();
+        expect(withNullCalculations.data.isCustomCalculations).toBe(false);
+      }
+    });
+
     it('successfully validates all allowed plant categories', () => {
       for (const category of PLANT_CATEGORIES) {
         const result = createPlantSchema.safeParse({
