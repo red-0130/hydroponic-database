@@ -327,6 +327,69 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
       expect(results[0].scientificName).toContain('Ocimum');
     });
 
+    it('GET /api/plants respects limit query parameter', async () => {
+      const req = createRequest('/api/plants?limit=3');
+      const res = await getPlants(req);
+      expect(res.status).toBe(200);
+
+      const results = await res.json();
+      expect(Array.isArray(results)).toBe(true);
+      expect(results.length).toBe(3);
+    });
+
+    it('GET /api/plants paginates with page and limit parameters', async () => {
+      const reqPage1 = createRequest('/api/plants?page=1&limit=3');
+      const resPage1 = await getPlants(reqPage1);
+      expect(resPage1.status).toBe(200);
+      const page1 = await resPage1.json();
+      expect(page1.length).toBe(3);
+
+      const reqPage2 = createRequest('/api/plants?page=2&limit=3');
+      const resPage2 = await getPlants(reqPage2);
+      expect(resPage2.status).toBe(200);
+      const page2 = await resPage2.json();
+      expect(page2.length).toBe(3);
+
+      const page1Ids = page1.map((p: any) => p.id);
+      const page2Ids = page2.map((p: any) => p.id);
+      expect(page1Ids.some((id: string) => page2Ids.includes(id))).toBe(false);
+    });
+
+    it('GET /api/plants sorts results according to sortBy and sortOrder', async () => {
+      const reqAsc = createRequest('/api/plants?sortBy=name&sortOrder=asc&limit=10');
+      const resAsc = await getPlants(reqAsc);
+      expect(resAsc.status).toBe(200);
+      const ascPlants = await resAsc.json();
+
+      const reqDesc = createRequest('/api/plants?sortBy=name&sortOrder=desc&limit=10');
+      const resDesc = await getPlants(reqDesc);
+      expect(resDesc.status).toBe(200);
+      const descPlants = await resDesc.json();
+
+      expect(ascPlants[0].name).not.toBe(descPlants[0].name);
+      expect(ascPlants[0].name).toBe(descPlants[descPlants.length - 1].name);
+    });
+
+    it('GET /api/plants gracefully ignores empty query parameters and uses defaults', async () => {
+      const req = createRequest('/api/plants?q=&category=&sortBy=&sortOrder=');
+      const res = await getPlants(req);
+      expect(res.status).toBe(200);
+
+      const results = await res.json();
+      expect(Array.isArray(results)).toBe(true);
+      expect(results.length).toBeGreaterThanOrEqual(8);
+    });
+
+    it('GET /api/plants rejects invalid query parameters with 400 Bad Request', async () => {
+      const req = createRequest('/api/plants?limit=150');
+      const res = await getPlants(req);
+      expect(res.status).toBe(400);
+
+      const data = await res.json();
+      expect(data.error).toBe('Invalid query parameters');
+      expect(data.details).toBeDefined();
+    });
+
     it('GET /api/plants/[id] returns plant detail with attached issues', async () => {
       const req = createRequest('/api/plants/crop-lettuce');
       const res = await getPlantById(req, {
