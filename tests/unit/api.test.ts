@@ -44,7 +44,7 @@ import { GET as adminExportData } from '@/app/api/admin/export/route';
 import { POST as adminImportData } from '@/app/api/admin/import/route';
 
 import { eq } from 'drizzle-orm';
-import { unlink } from 'fs/promises';
+import { unlink, writeFile, stat, mkdir } from 'fs/promises';
 import path from 'path';
 
 function createRequest(
@@ -723,6 +723,174 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
         .where(eq(plantIssues.id, testIssueId))
         .get();
       expect(issueAfter).toBeUndefined();
+    });
+
+    it('DELETE /api/admin/issues/[id] deletes issue and cleans up uploaded image file from disk (Issue 7)', async () => {
+      const dummyFilename = `issue-test-${Date.now()}.png`;
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+      const diskPath = path.join(uploadsDir, dummyFilename);
+      await mkdir(uploadsDir, { recursive: true });
+      await writeFile(diskPath, 'fake-issue-image-content');
+
+      const anyPlant = await db.select().from(plants).get();
+      expect(anyPlant).toBeDefined();
+
+      const createRes = await adminCreateIssue(
+        createRequest('/api/admin/issues', {
+          method: 'POST',
+          body: {
+            plantId: anyPlant!.id,
+            title: 'Test Issue with Image',
+            causeDescription: 'Test cause',
+            resolutionDescription: 'Test resolution',
+            imageUrl: `/uploads/${dummyFilename}`,
+          },
+        })
+      );
+      expect(createRes.status).toBe(201);
+      const createdIssue = await createRes.json();
+
+      expect(await stat(diskPath).catch(() => null)).not.toBeNull();
+
+      const deleteRes = await adminDeleteIssue(
+        createRequest(`/api/admin/issues/${createdIssue.id}`, { method: 'DELETE' }),
+        { params: Promise.resolve({ id: createdIssue.id }) }
+      );
+      expect(deleteRes.status).toBe(200);
+
+      // Verify db record deleted
+      const inDb = await db.select().from(plantIssues).where(eq(plantIssues.id, createdIssue.id)).get();
+      expect(inDb).toBeUndefined();
+
+      // Verify image deleted from disk
+      expect(await stat(diskPath).catch(() => null)).toBeNull();
+    });
+
+    it('DELETE /api/admin/plants/[id] removes crop and unlinks crop image and attached issue images from disk (Issue 7)', async () => {
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+      await mkdir(uploadsDir, { recursive: true });
+
+      const cropImageName = `plant-cleanup-${Date.now()}.png`;
+      const issueImageName = `issue-cleanup-${Date.now()}.png`;
+      const cropDiskPath = path.join(uploadsDir, cropImageName);
+      const issueDiskPath = path.join(uploadsDir, issueImageName);
+
+      await writeFile(cropDiskPath, 'fake-crop-image');
+      await writeFile(issueDiskPath, 'fake-issue-image');
+
+      const plantRes = await adminCreatePlant(
+        createRequest('/api/admin/plants', {
+          method: 'POST',
+          body: {
+            name: 'Image Cleanup Crop',
+            category: 'Herbs',
+            phMin: 5.5,
+            phMax: 6.5,
+            ecMin: 1.0,
+            ecMax: 1.5,
+            imageUrl: `/uploads/${cropImageName}`,
+          },
+        })
+      );
+      expect(plantRes.status).toBe(201);
+      const createdPlant = await plantRes.json();
+
+      const issueRes = await adminCreateIssue(
+        createRequest('/api/admin/issues', {
+          method: 'POST',
+          body: {
+            plantId: createdPlant.id,
+            title: 'Attached Issue With Uploaded Image',
+            causeDescription: 'Cause',
+            resolutionDescription: 'Resolution',
+            imageUrl: `/uploads/${issueImageName}`,
+          },
+        })
+      );
+      expect(issueRes.status).toBe(201);
+      const createdIssue = await issueRes.json();
+
+      expect(await stat(cropDiskPath).catch(() => null)).not.toBeNull();
+      expect(await stat(issueDiskPath).catch(() => null)).not.toBeNull();
+
+      const delRes = await adminDeletePlant(
+        createRequest(`/api/admin/plants/${createdPlant.id}`, { method: 'DELETE' }),
+        { params: Promise.resolve({ id: createdPlant.id }) }
+      );
+      expect(delRes.status).toBe(200);
+
+      // Check DB records gone
+      expect(await db.select().from(plants).where(eq(plants.id, createdPlant.id)).get()).toBeUndefined();
+      expect(await db.select().from(plantIssues).where(eq(plantIssues.id, createdIssue.id)).get()).toBeUndefined();
+
+      // Check both image files removed from disk
+      expect(await stat(cropDiskPath).catch(() => null)).toBeNull();
+      expect(await stat(issueDiskPath).catch(() => null)).toBeNull();
+    });
+
+    it('DELETE /api/admin/plants/[id] does not crash or delete static image files', async () => {
+      const plantRes = await adminCreatePlant(
+        createRequest('/api/admin/plants', {
+          method: 'POST',
+          body: {
+            name: 'Static Image Crop',
+            category: 'Herbs',
+            phMin: 5.5,
+            phMax: 6.5,
+            ecMin: 1.0,
+            ecMax: 1.5,
+            imageUrl: '/images/lettuce.jpg',
+          },
+        })
+      );
+      const plant = await plantRes.json();
+
+      const delRes = await adminDeletePlant(
+        createRequest(`/api/admin/plants/${plant.id}`, { method: 'DELETE' }),
+        { params: Promise.resolve({ id: plant.id }) }
+      );
+      expect(delRes.status).toBe(200);
+
+      // Verify static image is not deleted
+      const staticFile = await stat(path.join(process.cwd(), 'public', 'images', 'lettuce.jpg')).catch(() => null);
+      expect(staticFile).not.toBeNull();
+    });
+
+    it('DELETE /api/admin/plants/[id] unlinks uploaded image with query parameter (Issue 7 robust cleanup)', async () => {
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+      await mkdir(uploadsDir, { recursive: true });
+
+      const imageName = `query-cleanup-${Date.now()}.png`;
+      const diskPath = path.join(uploadsDir, imageName);
+      await writeFile(diskPath, 'query-image-bytes');
+
+      const plantRes = await adminCreatePlant(
+        createRequest('/api/admin/plants', {
+          method: 'POST',
+          body: {
+            name: 'Query Image Crop',
+            category: 'Leafy Greens',
+            phMin: 5.5,
+            phMax: 6.5,
+            ecMin: 1.0,
+            ecMax: 1.5,
+            imageUrl: `/uploads/${imageName}?version=2&t=123456`,
+          },
+        })
+      );
+      expect(plantRes.status).toBe(201);
+      const plant = await plantRes.json();
+
+      expect(await stat(diskPath).catch(() => null)).not.toBeNull();
+
+      const delRes = await adminDeletePlant(
+        createRequest(`/api/admin/plants/${plant.id}`, { method: 'DELETE' }),
+        { params: Promise.resolve({ id: plant.id }) }
+      );
+      expect(delRes.status).toBe(200);
+
+      // Verify file deleted from disk despite query parameters
+      expect(await stat(diskPath).catch(() => null)).toBeNull();
     });
   });
 

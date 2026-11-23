@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, ensureDb, plants, plantIssues } from '@/db';
 import { plantUpdateSchema } from '@/lib/validators';
 import { calculateNutrientMetrics } from '@/lib/calculations';
+import { deleteUploadedImages } from '@/lib/uploads';
 import { eq, asc } from 'drizzle-orm';
 
 export async function GET(
@@ -189,9 +190,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Plant not found' }, { status: 404 });
     }
 
+    const linkedIssues = await db.select().from(plantIssues).where(eq(plantIssues.plantId, id));
+
     // Explicitly delete linked issues to ensure cascade
     await db.delete(plantIssues).where(eq(plantIssues.plantId, id));
     await db.delete(plants).where(eq(plants.id, id));
+
+    // Clean up local uploaded images for plant and linked issues
+    await deleteUploadedImages([
+      existingPlant.imageUrl,
+      ...linkedIssues.map((issue) => issue.imageUrl),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

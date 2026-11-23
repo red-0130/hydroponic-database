@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, ensureDb, plantIssues } from '@/db';
 import { issueUpdateSchema } from '@/lib/validators';
+import { deleteUploadedImage } from '@/lib/uploads';
 import { eq } from 'drizzle-orm';
 
 export async function GET(
@@ -98,6 +99,9 @@ export async function DELETE(
     }
 
     await db.delete(plantIssues).where(eq(plantIssues.id, id));
+
+    // Clean up local uploaded image if present
+    await deleteUploadedImage(existingIssue.imageUrl);
 
     return NextResponse.json({ success: true });
   } catch (error) {
