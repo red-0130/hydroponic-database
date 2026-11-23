@@ -64,7 +64,7 @@ echo "Docker daemon is active using command: ${DOCKER_CMD}"
 cleanup() {
   local exit_code=$?
   echo ">>> Performing Container Teardown & Cleanup..."
-  rm -f "${COOKIE_JAR}" 2>/dev/null || true
+  rm -f "${COOKIE_JAR}" "${TEST_IMG:-}" "${AFTER_IMG:-}" 2>/dev/null || true
   rm -rf "${TEST_DATA_DIR}" 2>/dev/null || true
   ${DOCKER_CMD} rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
   if [ $exit_code -eq 0 ]; then
@@ -230,6 +230,72 @@ else
   echo "  [FAIL] Expected PID 1 to run as UID 1001, got UID '${PID1_UID}'."
   exit 1
 fi
+
+# Check 11: Upload Persistence Across Container Restart
+echo "Check 11: Upload Persistence Across Container Restart..."
+TEST_IMG="$(mktemp /tmp/test_crop_XXXXXX.png)"
+printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x03\x00\x08\xfc\x02\xfe\xa7\x9a\xa0\xa0\x00\x00\x00\x00IEND\xaeB`\x82' > "${TEST_IMG}"
+
+UPLOAD_RES=$(curl -fsS -b "${COOKIE_JAR}" -X POST "${BASE_URL}/api/admin/upload" \
+  -F "file=@${TEST_IMG};type=image/png")
+UPLOAD_URL=$(echo "${UPLOAD_RES}" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
+if [ -z "${UPLOAD_URL}" ]; then
+  echo "  [FAIL] Image upload failed or returned no URL: ${UPLOAD_RES}"
+  exit 1
+fi
+echo "  Uploaded image URL: ${UPLOAD_URL}"
+
+# Verify image is accessible before restart
+PRE_HTTP=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}${UPLOAD_URL}")
+if [ "${PRE_HTTP}" != "200" ]; then
+  echo "  [FAIL] Uploaded image not accessible before restart: HTTP ${PRE_HTTP}"
+  exit 1
+fi
+echo "  [PASS] Uploaded image served with HTTP 200 prior to container restart."
+
+# Restart container to verify volume persistence
+echo "  Restarting container '${CONTAINER_NAME}'..."
+${DOCKER_CMD} restart "${CONTAINER_NAME}"
+
+# Poll HTTP readiness after restart
+READY_RESTART=0
+for r_attempt in $(seq 1 40); do
+  if curl -s -f "${BASE_URL}/api/plants" >/dev/null 2>&1; then
+    READY_RESTART=1
+    break
+  fi
+  sleep 1
+done
+
+if [ "${READY_RESTART}" -ne 1 ]; then
+  echo "  [FAIL] Service failed to recover after container restart."
+  ${DOCKER_CMD} logs "${CONTAINER_NAME}"
+  exit 1
+fi
+
+# Verify image is accessible and byte-identical after container restart
+AFTER_IMG="$(mktemp /tmp/after_crop_XXXXXX.png)"
+AFTER_HTTP=$(curl -s -o "${AFTER_IMG}" -w "%{http_code}" "${BASE_URL}${UPLOAD_URL}")
+if [ "${AFTER_HTTP}" != "200" ]; then
+  echo "  [FAIL] Uploaded image not accessible after restart: HTTP ${AFTER_HTTP}"
+  exit 1
+fi
+
+if ! cmp -s "${TEST_IMG}" "${AFTER_IMG}"; then
+  echo "  [FAIL] Uploaded image content mismatch after container restart."
+  exit 1
+fi
+
+# Verify image file exists directly on host volume mount
+UPLOAD_FILENAME=$(basename "${UPLOAD_URL}")
+if [ -s "${TEST_DATA_DIR}/uploads/${UPLOAD_FILENAME}" ]; then
+  echo "  [PASS] Uploaded file verified on host volume at ${TEST_DATA_DIR}/uploads/${UPLOAD_FILENAME}."
+else
+  echo "  [FAIL] Uploaded file not found or empty on host volume (${TEST_DATA_DIR}/uploads/${UPLOAD_FILENAME})."
+  exit 1
+fi
+rm -f "${TEST_IMG}" "${AFTER_IMG}" 2>/dev/null || true
+echo "  [PASS] Upload persistence across container restart successfully verified."
 
 echo "====================================================================="
 echo "ALL CONTAINER VERIFICATION CHECKS PASSED SUCCESSFULLY!"

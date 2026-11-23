@@ -38,6 +38,7 @@ import {
 
 // Admin Upload, Seed, Export, Import routes
 import { POST as adminUploadImage } from '@/app/api/admin/upload/route';
+import { GET as getUploadedFile } from '@/app/uploads/[filename]/route';
 import { POST as adminSeedDb } from '@/app/api/admin/seed/route';
 import { GET as adminExportData } from '@/app/api/admin/export/route';
 import { POST as adminImportData } from '@/app/api/admin/import/route';
@@ -827,6 +828,52 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
       // Clean up uploaded test file
       const diskPath = path.join(process.cwd(), 'public', json.url);
       await unlink(diskPath).catch(() => {});
+    });
+
+    it('GET /uploads/[filename] serves uploaded file with correct content-type and cache-control headers', async () => {
+      const formData = new FormData();
+      const dummyPngData = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+      const blob = new Blob([dummyPngData], { type: 'image/png' });
+      formData.append('file', blob, 'serve-test.png');
+
+      const uploadReq = createRequest('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadRes = await adminUploadImage(uploadReq);
+      expect(uploadRes.status).toBe(200);
+      const { url } = await uploadRes.json();
+      const filename = path.basename(url);
+
+      const getReq = createRequest(url);
+      const getRes = await getUploadedFile(getReq, {
+        params: Promise.resolve({ filename }),
+      });
+      expect(getRes.status).toBe(200);
+      expect(getRes.headers.get('Content-Type')).toBe('image/png');
+      expect(getRes.headers.get('Cache-Control')).toContain('public');
+
+      const arrayBuffer = await getRes.arrayBuffer();
+      expect(new Uint8Array(arrayBuffer)).toEqual(dummyPngData);
+
+      const diskPath = path.join(process.cwd(), 'public', url);
+      await unlink(diskPath).catch(() => {});
+    });
+
+    it('GET /uploads/[filename] returns 404 for non-existent file', async () => {
+      const getReq = createRequest('/uploads/non-existent-image-12345.png');
+      const getRes = await getUploadedFile(getReq, {
+        params: Promise.resolve({ filename: 'non-existent-image-12345.png' }),
+      });
+      expect(getRes.status).toBe(404);
+    });
+
+    it('GET /uploads/[filename] returns 400 for path traversal attempt', async () => {
+      const getReq = createRequest('/uploads/../../../etc/passwd');
+      const getRes = await getUploadedFile(getReq, {
+        params: Promise.resolve({ filename: '../../../etc/passwd' }),
+      });
+      expect(getRes.status).toBe(400);
     });
   });
 
