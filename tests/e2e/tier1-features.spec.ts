@@ -605,6 +605,42 @@ test.describe('Tier 1: Feature Coverage (Category-Partition Testing)', () => {
 
       await expect(passwordInput).toBeVisible();
     });
+
+    test('T1.7.7: clicking secretly clickable footer text navigates to secret admin portal', async ({ page }) => {
+      await page.goto('/');
+      await page.waitForLoadState('domcontentloaded');
+
+      const footer = page.locator('footer');
+      await expect(footer).toBeVisible();
+
+      // Locate the secretly clickable link in the footer
+      const secretLink = footer.getByTestId('footer-admin-link')
+        .or(footer.getByRole('link', { name: /Hydroponic Database System/i }));
+      await expect(secretLink).toBeVisible();
+
+      // Verify that the footer text is a link
+      await expect(secretLink).toHaveAttribute('href', `/${ADMIN_SECRET_PATH}`);
+
+      // Requirement R1: link appears as normal text without visible link styling or underline
+      const textDecoration = await secretLink.evaluate((el) => {
+        return window.getComputedStyle(el).textDecorationLine;
+      });
+      expect(textDecoration).toBe('none');
+
+      const cursor = await secretLink.evaluate((el) => {
+        return window.getComputedStyle(el).cursor;
+      });
+      expect(cursor).toBe('default');
+
+      // Requirement R2: clicking it navigates to /${ADMIN_SECRET_PATH} and admin portal login/dashboard is displayed
+      await secretLink.click();
+      await page.waitForURL(new RegExp(`/${ADMIN_SECRET_PATH}`));
+
+      const adminAuthElement = page.getByTestId('admin-password-input')
+        .or(page.locator('input[type="password"]'))
+        .or(page.getByTestId('admin-dashboard'));
+      await expect(adminAuthElement).toBeVisible();
+    });
   });
 
   // =========================================================================

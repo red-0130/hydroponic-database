@@ -38,6 +38,15 @@ describe('Authentication & Security', () => {
       expect(path.startsWith('/')).toBe(false);
       expect(path.endsWith('/')).toBe(false);
     });
+
+    it('provides a normalized secret path suitable for secret footer navigation', () => {
+      const path = getAdminSecretPath();
+      expect(typeof path).toBe('string');
+      expect(path.length).toBeGreaterThan(0);
+      expect(path).not.toMatch(/^\//);
+      expect(path).not.toMatch(/\/$/);
+      expect(`/${path}`).toBe('/sys-portal-8f2e9d');
+    });
   });
 
   describe('Session Token Generation & Verification', () => {
