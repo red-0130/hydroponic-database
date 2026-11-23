@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
   Sprout,
   Plus,
@@ -135,7 +136,7 @@ export default function AdminDashboard({ secretPath, onLogout }: AdminDashboardP
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Navigation & Top Bar */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-neutral-800">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
               <Sprout className="w-6 h-6" />
             </div>
@@ -150,7 +151,7 @@ export default function AdminDashboard({ secretPath, onLogout }: AdminDashboardP
                 Manage botanical profiles, nutrient standards, and diagnostic issues
               </p>
             </div>
-          </div>
+          </Link>
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Add Crop Button */}

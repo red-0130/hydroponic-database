@@ -3,6 +3,7 @@ import { db, ensureDb, plants, plantIssues } from '@/db';
 import { eq, sql, asc } from 'drizzle-orm';
 import { CropExplorer } from '@/components/public/CropExplorer';
 import { UnitConverter } from '@/components/public/UnitConverter';
+import Link from 'next/link';
 import { Sprout, Database } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ export default async function HomePage() {
       {/* Top Navigation / App Header */}
       <header className="sticky top-0 z-40 border-b border-neutral-200 dark:border-neutral-800 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20">
               <Sprout className="w-5 h-5 stroke-[2.2]" />
             </div>
@@ -58,7 +59,7 @@ export default async function HomePage() {
                 Commercial and hobbyist nutrient reference
               </p>
             </div>
-          </div>
+          </Link>
 
           <div className="flex items-center gap-3">
             <UnitConverter buttonText="Quick Unit Converter" />
