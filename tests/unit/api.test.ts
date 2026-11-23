@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { renderToString } from 'react-dom/server';
+import HomePage from '@/app/page';
 import { db, ensureDb, plants, plantIssues } from '@/db';
 import { seedDatabase } from '@/db/seed';
-import { createSessionToken, ADMIN_COOKIE_NAME } from '@/lib/auth';
+import { createSessionToken, ADMIN_COOKIE_NAME, getAdminSecretPath } from '@/lib/auth';
 import { resetAllLoginAttempts } from '@/lib/rateLimit';
 
 // Middleware & Robots
@@ -167,7 +169,7 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
     const validPassword =
       process.env.ADMIN_PASSWORD || 'admin_hydroponics_secure_pass_2026';
 
-    it('POST /api/admin/auth/login succeeds with correct password and sets cookie', async () => {
+    it('POST /api/admin/auth/login succeeds with correct password and sets cookie and redirectUrl', async () => {
       const req = createRequest('/api/admin/auth/login', {
         method: 'POST',
         body: { password: validPassword },
@@ -177,6 +179,7 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
 
       const json = await res.json();
       expect(json.success).toBe(true);
+      expect(json.redirectUrl).toBe(`/${getAdminSecretPath()}`);
 
       const cookie = res.cookies.get(ADMIN_COOKIE_NAME);
       expect(cookie).toBeDefined();
@@ -249,21 +252,30 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
       expect(cookie?.maxAge).toBe(0);
     });
 
-    it('GET /api/admin/auth/status returns false for unauthenticated user', async () => {
+    it('GET /api/admin/auth/status returns false without redirectUrl for unauthenticated user', async () => {
       const req = createRequest('/api/admin/auth/status');
       const res = await authStatusGet(req);
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.authenticated).toBe(false);
+      expect(json.redirectUrl).toBeUndefined();
     });
 
-    it('GET /api/admin/auth/status returns true for valid session', async () => {
+    it('GET /api/admin/auth/status returns true and redirectUrl for valid session', async () => {
       const token = createSessionToken();
       const req = createRequest('/api/admin/auth/status', { token });
       const res = await authStatusGet(req);
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.authenticated).toBe(true);
+      expect(json.redirectUrl).toBe(`/${getAdminSecretPath()}`);
+    });
+
+    it('public homepage does not leak ADMIN_SECRET_PATH in rendered HTML', async () => {
+      const pageJsx = await HomePage();
+      const html = renderToString(pageJsx);
+      const secretPath = getAdminSecretPath();
+      expect(html).not.toContain(secretPath);
     });
   });
 

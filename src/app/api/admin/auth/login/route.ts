@@ -4,6 +4,7 @@ import {
   createSessionToken,
   ADMIN_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
+  getAdminSecretPath,
 } from '@/lib/auth';
 import {
   checkLoginRateLimit,
@@ -55,7 +56,10 @@ export async function POST(request: NextRequest) {
     resetLoginAttempts(ip);
 
     const token = createSessionToken();
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({
+      success: true,
+      redirectUrl: `/${getAdminSecretPath()}`,
+    });
 
     response.cookies.set({
       name: ADMIN_COOKIE_NAME,

@@ -3,15 +3,14 @@ import { db, ensureDb, plants, plantIssues } from '@/db';
 import { eq, sql, asc } from 'drizzle-orm';
 import { CropExplorer } from '@/components/public/CropExplorer';
 import { UnitConverter } from '@/components/public/UnitConverter';
+import { FooterAdminTrigger } from '@/components/public/FooterAdminTrigger';
 import Link from 'next/link';
 import { Sprout, Database } from 'lucide-react';
-import { getAdminSecretPath } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   await ensureDb();
-  const adminSecretPath = getAdminSecretPath();
 
   const allPlants = await db
     .select({
@@ -99,13 +98,7 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-neutral-500 dark:text-neutral-400 space-y-1">
           <p>
             © 2026{' '}
-            <Link
-              href={`/${adminSecretPath}`}
-              data-testid="footer-admin-link"
-              className="cursor-default text-inherit hover:text-inherit no-underline hover:no-underline focus:outline-none"
-            >
-              Hydroponic Database System
-            </Link>
+            <FooterAdminTrigger />
             . All rights reserved.
           </p>
           <p>
