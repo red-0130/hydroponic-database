@@ -315,45 +315,47 @@ export async function POST(request: NextRequest) {
 
     // Commit to database
     let importedCount = 0;
-    for (const item of processedPlants) {
-      const existing = await db
-        .select({ id: plants.id })
-        .from(plants)
-        .where(eq(plants.id, item.plant.id))
-        .get();
+    await db.transaction(async (tx) => {
+      for (const item of processedPlants) {
+        const existing = await tx
+          .select({ id: plants.id })
+          .from(plants)
+          .where(eq(plants.id, item.plant.id))
+          .get();
 
-      if (existing) {
-        await db
-          .update(plants)
-          .set({
-            ...item.plant,
-            updatedAt: now,
-          })
-          .where(eq(plants.id, item.plant.id));
+        if (existing) {
+          await tx
+            .update(plants)
+            .set({
+              ...item.plant,
+              updatedAt: now,
+            })
+            .where(eq(plants.id, item.plant.id));
 
-        await db.delete(plantIssues).where(eq(plantIssues.plantId, item.plant.id));
-      } else {
-        await db.insert(plants).values(item.plant);
-      }
-
-      if (item.issues && item.issues.length > 0) {
-        for (let j = 0; j < item.issues.length; j++) {
-          const issue = item.issues[j];
-          await db.insert(plantIssues).values({
-            id: randomUUID(),
-            plantId: item.plant.id,
-            title: issue.title,
-            causeDescription: issue.causeDescription,
-            resolutionDescription: issue.resolutionDescription,
-            imageUrl: issue.imageUrl || null,
-            createdAt: now,
-            updatedAt: now,
-          });
+          await tx.delete(plantIssues).where(eq(plantIssues.plantId, item.plant.id));
+        } else {
+          await tx.insert(plants).values(item.plant);
         }
-      }
 
-      importedCount++;
-    }
+        if (item.issues && item.issues.length > 0) {
+          for (let j = 0; j < item.issues.length; j++) {
+            const issue = item.issues[j];
+            await tx.insert(plantIssues).values({
+              id: randomUUID(),
+              plantId: item.plant.id,
+              title: issue.title,
+              causeDescription: issue.causeDescription,
+              resolutionDescription: issue.resolutionDescription,
+              imageUrl: issue.imageUrl || null,
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
+        }
+
+        importedCount++;
+      }
+    });
 
     return NextResponse.json({
       success: true,

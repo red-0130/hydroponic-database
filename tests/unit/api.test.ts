@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { db, ensureDb, plants, plantIssues } from '@/db';
 import { seedDatabase } from '@/db/seed';
@@ -1073,6 +1073,92 @@ describe('Milestone 2 API & Security Integration Test Suite', () => {
 
       // Clean up test plant
       await db.delete(plants).where(eq(plants.id, created.id));
+    });
+
+    it('POST /api/admin/import rolls back all inserts when transaction fails', async () => {
+      const plantOneId = 'tx-rollback-test-plant-1';
+      const plantTwoId = 'tx-rollback-test-plant-2';
+
+      // Clean up beforehand just in case
+      await db.delete(plants).where(eq(plants.id, plantOneId));
+      await db.delete(plants).where(eq(plants.id, plantTwoId));
+
+      const importPayload = {
+        previewOnly: false,
+        data: [
+          {
+            id: plantOneId,
+            name: 'Rollback Crop 1',
+            category: 'Leafy Greens',
+            phMin: 5.5,
+            phMax: 6.5,
+            ecMin: 1.0,
+            ecMax: 1.5,
+          },
+          {
+            id: plantTwoId,
+            name: 'Rollback Crop 2',
+            category: 'Herbs',
+            phMin: 6.0,
+            phMax: 6.8,
+            ecMin: 1.2,
+            ecMax: 1.8,
+          },
+        ],
+      };
+
+      // Wrap transaction to simulate failure on the second insert
+      const origTransaction = db.transaction.bind(db);
+      const transactionSpy = vi.spyOn(db, 'transaction').mockImplementation(async (cb: any) => {
+        return await origTransaction(async (tx: any) => {
+          let insertCount = 0;
+          const origInsert = tx.insert.bind(tx);
+          tx.insert = ((table: any) => {
+            const query = origInsert(table);
+            const origValues = query.values.bind(query);
+            query.values = ((vals: any) => {
+              insertCount++;
+              if (insertCount > 1) {
+                throw new Error('Simulated database error during bulk import');
+              }
+              return origValues(vals);
+            }) as any;
+            return query;
+          }) as any;
+          return await cb(tx);
+        });
+      });
+
+      try {
+        const req = createRequest('/api/admin/import', {
+          method: 'POST',
+          body: importPayload,
+        });
+
+        const res = await adminImportData(req);
+        expect(res.status).toBe(500);
+        const json = await res.json();
+        expect(json.error).toBe('Failed to import data');
+
+        // Confirm rollback: crop 1 must NOT exist in the database even though it was inserted first
+        const checkCropOne = await db
+          .select()
+          .from(plants)
+          .where(eq(plants.id, plantOneId))
+          .get();
+        expect(checkCropOne).toBeUndefined();
+
+        const checkCropTwo = await db
+          .select()
+          .from(plants)
+          .where(eq(plants.id, plantTwoId))
+          .get();
+        expect(checkCropTwo).toBeUndefined();
+      } finally {
+        transactionSpy.mockRestore();
+        await db.delete(plants).where(eq(plants.id, plantOneId));
+        await db.delete(plants).where(eq(plants.id, plantTwoId));
+      }
     });
   });
 });
