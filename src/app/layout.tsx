@@ -4,6 +4,10 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Hydroponic Database',
   description: 'Hydroponic plant database and nutrient requirement reference for growers',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({
