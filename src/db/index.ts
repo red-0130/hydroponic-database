@@ -58,12 +58,20 @@ export async function initDb() {
 }
 
 let dbInitPromise: Promise<void> | null = null;
+
+export function resetDbInitPromise(): void {
+  dbInitPromise = null;
+}
+
 export async function ensureDb(): Promise<void> {
   if (!dbInitPromise) {
     dbInitPromise = (async () => {
       await initDb();
       await seedIfEmpty();
-    })();
+    })().catch((err) => {
+      dbInitPromise = null;
+      throw err;
+    });
   }
   return dbInitPromise;
 }

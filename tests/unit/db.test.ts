@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { db, initDb, plants, plantIssues } from '@/db';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { db, initDb, ensureDb, resetDbInitPromise, client, plants, plantIssues } from '@/db';
 import { seedDatabase } from '@/db/seed';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -101,5 +101,65 @@ describe('Database Schema, Relations & Seeding', () => {
       .where(eq(plantIssues.id, testIssueId))
       .get();
     expect(remainingIssue).toBeUndefined();
+  });
+
+  describe('Startup failure resilience & retry (Issue 6)', () => {
+    it('resets dbInitPromise and retries after transient startup failure', async () => {
+      resetDbInitPromise();
+
+      let shouldFail = true;
+      const originalExecute = client.execute.bind(client);
+      const executeSpy = vi.spyOn(client, 'execute').mockImplementation(async (stmt) => {
+        if (shouldFail) {
+          shouldFail = false;
+          throw new Error('Simulated transient SQLite startup failure');
+        }
+        return originalExecute(stmt);
+      });
+
+      try {
+        // First attempt fails due to simulated transient error
+        await expect(ensureDb()).rejects.toThrow('Simulated transient SQLite startup failure');
+
+        // Second attempt retries because dbInitPromise was cleared, and succeeds
+        await expect(ensureDb()).resolves.toBeUndefined();
+      } finally {
+        executeSpy.mockRestore();
+        resetDbInitPromise();
+      }
+    });
+
+    it('handles concurrent callers during transient failure and allows subsequent recovery', async () => {
+      resetDbInitPromise();
+
+      let failureCount = 0;
+      const originalExecute = client.execute.bind(client);
+      const executeSpy = vi.spyOn(client, 'execute').mockImplementation(async (stmt) => {
+        if (failureCount < 1) {
+          failureCount++;
+          throw new Error('Simulated concurrent transient failure');
+        }
+        return originalExecute(stmt);
+      });
+
+      try {
+        // Concurrent callers share the initial failing promise
+        const [res1, res2] = await Promise.allSettled([ensureDb(), ensureDb()]);
+        expect(res1.status).toBe('rejected');
+        expect(res2.status).toBe('rejected');
+        if (res1.status === 'rejected') {
+          expect(res1.reason?.message).toBe('Simulated concurrent transient failure');
+        }
+        if (res2.status === 'rejected') {
+          expect(res2.reason?.message).toBe('Simulated concurrent transient failure');
+        }
+
+        // After failure, next call retries and succeeds
+        await expect(ensureDb()).resolves.toBeUndefined();
+      } finally {
+        executeSpy.mockRestore();
+        resetDbInitPromise();
+      }
+    });
   });
 });

@@ -45,13 +45,19 @@ describe('Fresh Deployment & Startup Database Seeding', () => {
     expect(plantNames).toContain('Cucumber');
     expect(plantNames).toContain('Mint (Spearmint)');
 
+    // Verify all seeded plants have imageUrl as null
+    for (const plant of allPlants) {
+      expect(plant.imageUrl).toBeNull();
+    }
+
     // 5. Verify issues in database
     const allIssues = await db.select().from(plantIssues).all();
     expect(allIssues.length).toBe(13);
 
-    // Verify foreign key relations
+    // Verify foreign key relations and null imageUrl
     for (const issue of allIssues) {
       expect(issue.plantId).toBeTruthy();
+      expect(issue.imageUrl).toBeNull();
       expect(plantNames.some(() => allPlants.some((p) => p.id === issue.plantId))).toBe(true);
     }
   });

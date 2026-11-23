@@ -30,37 +30,46 @@ export async function seedIfEmpty(
   const now = new Date();
   let totalIssuesCount = 0;
 
-  for (const crop of SEED_CROPS) {
-    const { issues, ...plantData } = crop;
+  const runSeed = async (tx: any) => {
+    for (const crop of SEED_CROPS) {
+      const { issues, ...plantData } = crop;
 
-    await targetDb
-      .insert(plants)
-      .values({
-        ...plantData,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoNothing();
+      await tx
+        .insert(plants)
+        .values({
+          ...plantData,
+          imageUrl: plantData.imageUrl ?? null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing();
 
-    if (issues && issues.length > 0) {
-      for (let i = 0; i < issues.length; i++) {
-        const issue = issues[i];
-        await targetDb
-          .insert(plantIssues)
-          .values({
-            id: `${crop.id}-issue-${i + 1}`,
-            plantId: crop.id,
-            title: issue.title,
-            causeDescription: issue.causeDescription,
-            resolutionDescription: issue.resolutionDescription,
-            imageUrl: issue.imageUrl,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .onConflictDoNothing();
-        totalIssuesCount++;
+      if (issues && issues.length > 0) {
+        for (let i = 0; i < issues.length; i++) {
+          const issue = issues[i];
+          await tx
+            .insert(plantIssues)
+            .values({
+              id: `${crop.id}-issue-${i + 1}`,
+              plantId: crop.id,
+              title: issue.title,
+              causeDescription: issue.causeDescription,
+              resolutionDescription: issue.resolutionDescription,
+              imageUrl: issue.imageUrl ?? null,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .onConflictDoNothing();
+          totalIssuesCount++;
+        }
       }
     }
+  };
+
+  if (typeof (targetDb as any).transaction === 'function') {
+    await (targetDb as any).transaction(runSeed);
+  } else {
+    await runSeed(targetDb);
   }
 
   console.log(`Seeding complete: ${SEED_CROPS.length} plants and ${totalIssuesCount} issues.`);
