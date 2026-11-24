@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySessionTokenEdge, ADMIN_COOKIE_NAME } from '@/lib/auth-edge';
+import { verifySessionToken, ADMIN_COOKIE_NAME } from '@/lib/auth-edge';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
-    const isValid = await verifySessionTokenEdge(token);
+    const isValid = await verifySessionToken(token);
 
     if (!isValid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

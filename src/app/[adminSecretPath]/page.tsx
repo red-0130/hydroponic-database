@@ -21,7 +21,7 @@ export default async function AdminPage({ params }: AdminPageProps) {
   // Check admin session cookie
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  const isAuthenticated = verifySessionToken(sessionToken);
+  const isAuthenticated = await verifySessionToken(sessionToken);
 
   return (
     <AdminPortalContainer

@@ -1,15 +1,19 @@
 import crypto from 'crypto';
+import {
+  ADMIN_COOKIE_NAME,
+  getSecretKey,
+  verifySessionToken,
+  verifySessionTokenEdge,
+} from './auth-edge';
 
-export const ADMIN_COOKIE_NAME = 'admin_session';
+export {
+  ADMIN_COOKIE_NAME,
+  verifySessionToken,
+  verifySessionTokenEdge,
+};
+
 export const SESSION_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 export const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60; // 43,200 seconds
-
-function getSecretKey(): string {
-  return (
-    process.env.ADMIN_SESSION_SECRET ||
-    'e9d8f2a1b7c3e4f50618293a4b5c6d7e8f90123456789abcdef0123456789abc'
-  );
-}
 
 function getExpectedAdminPassword(): string {
   return process.env.ADMIN_PASSWORD || 'admin_hydroponics_secure_pass_2026';
@@ -63,62 +67,4 @@ export function createSessionToken(): string {
   return `${payloadEncoded}.${signature}`;
 }
 
-/**
- * Verifies the validity, signature, and expiration of a session token.
- */
-export function verifySessionToken(token: string | undefined | null): boolean {
-  if (!token || typeof token !== 'string') {
-    return false;
-  }
-
-  const parts = token.split('.');
-  if (parts.length !== 2) {
-    return false;
-  }
-
-  const [payloadEncoded, signature] = parts;
-  if (!payloadEncoded || !signature) {
-    return false;
-  }
-
-  if (typeof signature !== 'string' || signature.length !== 64 || !/^[0-9a-f]{64}$/i.test(signature)) {
-    return false;
-  }
-
-  const expectedSignature = crypto
-    .createHmac('sha256', getSecretKey())
-    .update(payloadEncoded)
-    .digest('hex');
-
-  const sigBuffer = Buffer.from(signature, 'hex');
-  const expectedSigBuffer = Buffer.from(expectedSignature, 'hex');
-
-  if (sigBuffer.length !== expectedSigBuffer.length) {
-    return false;
-  }
-
-  const isSigValid = crypto.timingSafeEqual(sigBuffer, expectedSigBuffer);
-  if (!isSigValid) {
-    return false;
-  }
-
-  try {
-    const decodedJson = Buffer.from(payloadEncoded, 'base64url').toString('utf8');
-    const payload: SessionPayload = JSON.parse(decodedJson);
-
-    if (payload.role !== 'admin') {
-      return false;
-    }
-
-    if (typeof payload.exp !== 'number' || payload.exp < Date.now()) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export { verifySessionTokenEdge } from './auth-edge';
 

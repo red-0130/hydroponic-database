@@ -42,7 +42,7 @@ function constantTimeEqual(a: string, b: string): boolean {
 /**
  * Verifies session token using standard Web Crypto API (supported in Edge and Node runtimes).
  */
-export async function verifySessionTokenEdge(
+export async function verifySessionToken(
   token: string | undefined | null
 ): Promise<boolean> {
   if (!token || typeof token !== 'string') {
@@ -102,3 +102,6 @@ export async function verifySessionTokenEdge(
     return false;
   }
 }
+
+export const verifySessionTokenEdge = verifySessionToken;
+

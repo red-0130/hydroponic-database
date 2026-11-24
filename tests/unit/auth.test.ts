@@ -53,24 +53,24 @@ describe('Authentication & Security', () => {
   });
 
   describe('Session Token Generation & Verification', () => {
-    it('creates a signed token that successfully verifies', () => {
+    it('creates a signed token that successfully verifies', async () => {
       const token = createSessionToken();
       expect(typeof token).toBe('string');
       expect(token.includes('.')).toBe(true);
 
-      const isValid = verifySessionToken(token);
+      const isValid = await verifySessionToken(token);
       expect(isValid).toBe(true);
     });
 
-    it('rejects null, undefined, or malformed tokens', () => {
-      expect(verifySessionToken(null)).toBe(false);
-      expect(verifySessionToken(undefined)).toBe(false);
-      expect(verifySessionToken('')).toBe(false);
-      expect(verifySessionToken('single-string-without-dot')).toBe(false);
-      expect(verifySessionToken('a.b.c')).toBe(false);
+    it('rejects null, undefined, or malformed tokens', async () => {
+      expect(await verifySessionToken(null)).toBe(false);
+      expect(await verifySessionToken(undefined)).toBe(false);
+      expect(await verifySessionToken('')).toBe(false);
+      expect(await verifySessionToken('single-string-without-dot')).toBe(false);
+      expect(await verifySessionToken('a.b.c')).toBe(false);
     });
 
-    it('rejects tokens with tampered payloads', () => {
+    it('rejects tokens with tampered payloads', async () => {
       const token = createSessionToken();
       const [payload, sig] = token.split('.');
 
@@ -80,34 +80,34 @@ describe('Authentication & Security', () => {
       const tamperedPayload = Buffer.from(JSON.stringify(decoded)).toString('base64url');
 
       const tamperedToken = `${tamperedPayload}.${sig}`;
-      expect(verifySessionToken(tamperedToken)).toBe(false);
+      expect(await verifySessionToken(tamperedToken)).toBe(false);
     });
 
-    it('rejects tokens with tampered signatures', () => {
+    it('rejects tokens with tampered signatures', async () => {
       const token = createSessionToken();
       const [payload, sig] = token.split('.');
 
       // Alter signature
       const tamperedSig = sig.slice(0, -2) + (sig.endsWith('0') ? '1' : '0');
       const tamperedToken = `${payload}.${tamperedSig}`;
-      expect(verifySessionToken(tamperedToken)).toBe(false);
+      expect(await verifySessionToken(tamperedToken)).toBe(false);
     });
 
-    it('rejects tokens with extra characters appended to signature', () => {
+    it('rejects tokens with extra characters appended to signature', async () => {
       const token = createSessionToken();
       const [payload, sig] = token.split('.');
 
       const tamperedToken = `${payload}.${sig}a`;
-      expect(verifySessionToken(tamperedToken)).toBe(false);
+      expect(await verifySessionToken(tamperedToken)).toBe(false);
 
       const truncatedToken = `${payload}.${sig.slice(0, 63)}`;
-      expect(verifySessionToken(truncatedToken)).toBe(false);
+      expect(await verifySessionToken(truncatedToken)).toBe(false);
 
       const invalidCharsToken = `${payload}.${sig.slice(0, 63)}z`;
-      expect(verifySessionToken(invalidCharsToken)).toBe(false);
+      expect(await verifySessionToken(invalidCharsToken)).toBe(false);
     });
 
-    it('rejects expired tokens', () => {
+    it('rejects expired tokens', async () => {
       const secret =
         process.env.ADMIN_SESSION_SECRET ||
         'e9d8f2a1b7c3e4f50618293a4b5c6d7e8f90123456789abcdef0123456789abc';
@@ -127,7 +127,7 @@ describe('Authentication & Security', () => {
         .digest('hex');
 
       const expiredToken = `${payloadEncoded}.${signature}`;
-      expect(verifySessionToken(expiredToken)).toBe(false);
+      expect(await verifySessionToken(expiredToken)).toBe(false);
     });
 
     it('has the expected admin cookie name', () => {
