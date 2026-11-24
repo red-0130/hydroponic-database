@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { POST as loginPost } from '@/app/api/admin/auth/login/route';
+import { resetAllLoginAttempts } from '@/lib/rateLimit';
+import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import {
   verifyAdminPassword,
@@ -129,6 +132,44 @@ describe('Authentication & Security', () => {
 
     it('has the expected admin cookie name', () => {
       expect(ADMIN_COOKIE_NAME).toBe('admin_session');
+    });
+  });
+
+  describe('Login Rate Limiting & Brute-Force Protection', () => {
+    beforeEach(() => {
+      resetAllLoginAttempts();
+    });
+
+    it('rejects attempt 6 with status 429 and Retry-After header after 5 failed attempts', async () => {
+      const testIp = '192.168.1.200';
+
+      for (let i = 0; i < 5; i++) {
+        const req = new NextRequest('http://localhost:3000/api/admin/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-forwarded-for': testIp,
+          },
+          body: JSON.stringify({ password: 'wrong-password' }),
+        });
+        const res = await loginPost(req);
+        expect(res.status).toBe(401);
+      }
+
+      // 6th attempt should trigger 429 with Retry-After header
+      const blockedReq = new NextRequest('http://localhost:3000/api/admin/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-forwarded-for': testIp,
+        },
+        body: JSON.stringify({ password: 'any-password' }),
+      });
+      const blockedRes = await loginPost(blockedReq);
+      expect(blockedRes.status).toBe(429);
+      expect(blockedRes.headers.get('Retry-After')).toBeTruthy();
+      const json = await blockedRes.json();
+      expect(json.error).toContain('Too many failed login attempts');
     });
   });
 });
