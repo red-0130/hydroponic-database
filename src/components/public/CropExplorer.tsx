@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { SearchBar } from './SearchBar';
 import { PlantCard, type PlantWithCount, type PpmPreference } from './PlantCard';
 import { PlantTable } from './PlantTable';
@@ -23,15 +23,28 @@ interface CropExplorerProps {
 
 export function CropExplorer({ initialPlants }: CropExplorerProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [ppmPreference, setPpmPreference] = useState<PpmPreference>('both');
   const [isPpmPressed, setIsPpmPressed] = useState<boolean>(false);
   const [quickViewPlant, setQuickViewPlant] = useState<PlantWithCount | null>(null);
 
+  // Debounce search query by 150ms to prevent stutter during typing
+  useEffect(() => {
+    if (!searchQuery) {
+      setDebouncedQuery('');
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Filter crops
   const filteredPlants = useMemo(() => {
-    const trimmedQuery = searchQuery.trim().toLowerCase();
+    const trimmedQuery = debouncedQuery.trim().toLowerCase();
 
     return initialPlants.filter((plant) => {
       // Category filter
@@ -56,7 +69,7 @@ export function CropExplorer({ initialPlants }: CropExplorerProps) {
 
       return true;
     });
-  }, [initialPlants, searchQuery, selectedCategory]);
+  }, [initialPlants, debouncedQuery, selectedCategory]);
 
   const handlePpmToggle = () => {
     setIsPpmPressed(true);
@@ -69,6 +82,7 @@ export function CropExplorer({ initialPlants }: CropExplorerProps) {
 
   const handleResetFilters = () => {
     setSearchQuery('');
+    setDebouncedQuery('');
     setSelectedCategory('all');
   };
 
@@ -79,7 +93,10 @@ export function CropExplorer({ initialPlants }: CropExplorerProps) {
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
-          onClear={() => setSearchQuery('')}
+          onClear={() => {
+            setSearchQuery('');
+            setDebouncedQuery('');
+          }}
           className="flex-1"
         />
 
